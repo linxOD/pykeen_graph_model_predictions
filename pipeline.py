@@ -7,6 +7,7 @@ if __name__ == "__main__":
 
     # create an instance of the GraphModel class
     model = GraphModel(
+        model_name="TransE",
         model_output_path=model_input_path,
         training_path="data/lk-texts.tsv",
         testing_path="data/fa-texts.tsv",
