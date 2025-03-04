@@ -9,6 +9,7 @@ Update the GraphModel arguments and run the python script in the console. E.g. `
 
 Class:
 * GraphModel(**kwargs)
+    * model_name (str of pykeen model classes)
     * model_output_path (str with posix path to save model)
     * training_path (str with posix path to training data)
     * testing_path (str with posix path to testing data)

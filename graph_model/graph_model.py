@@ -20,8 +20,6 @@ class GraphModel(BaseModel):
     model_output_path: str = os.path.join(
         "model",
         f"semantic_kraus_experiment_{model_name}")
-    model_results: dict = None
-    model_input: str = os.path.join(model_output_path, 'trained_model.pkl')
 
     ########################################
     # variables for training and prediction
@@ -40,6 +38,7 @@ class GraphModel(BaseModel):
     training: dict = None
     testing: dict = None
     validation: dict = None
+    model_results: dict = None
 
     # prediction targets are stored as a list of tuples
     # by calling the method predict_target
