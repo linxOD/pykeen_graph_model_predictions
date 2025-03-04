@@ -1,5 +1,5 @@
 import os
-from graph_model import GraphModel
+from graph_model.graph_model import GraphModel
 
 if __name__ == "__main__":
     # define saved model path
