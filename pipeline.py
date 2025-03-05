@@ -1,31 +1,37 @@
-import os
+# import os
+import glob
+import pathlib
+import torch
 from graph_model.graph_model import GraphModel
 
 if __name__ == "__main__":
     # define saved model path
-    model_input_path = os.path.join("doctests", "test_pre_stratified_transe")
+    # model_input_path = os.path.join("doctests", "test_pre_stratified_transe")
+
+    # Add PosixPath to safe globals before loading the model
+    torch.serialization.add_safe_globals([pathlib.PosixPath])
 
     # create an instance of the GraphModel class
     model = GraphModel(
         model_name="TransE",
-        model_output_path=model_input_path,
-        training_path="data/lk-texts.tsv",
-        testing_path="data/fa-texts.tsv",
-        evaluation_path="data/dw-texts.tsv")
+        model_output_path="data/model",
+        training_path="data/dataset/training.tsv",
+        testing_path="data/dataset/testing.tsv",
+        evaluation_path="data/dataset/evaluation.tsv")
 
-    # convert ttl to tsv
-    # model.convert_ttl_to_tsv(ttl_path="data/lk-texts.ttl",
-    #                          tsv_path="data/lk-texts.tsv")
-    # model.convert_ttl_to_tsv(ttl_path="data/fa-texts.ttl",
-    #                          tsv_path="data/fa-texts.tsv")
-    # model.convert_ttl_to_tsv(ttl_path="data/dw-texts.ttl",
-    #                          tsv_path="data/dw-texts.tsv")
+    # # convert ttl to tsv
+    model.convert_ttl_to_tsv(input_glob=glob.glob("data/source/*.ttl"))
+
+    model.combine_tsv(glob.glob("data/source/*.tsv"),
+                      combined_path="data/combined-graph.tsv")
+
+    model.randomize_split_tsv(combined_path="data/combined-graph.tsv")
 
     # train model
-    # model.train(epochs=5)
+    model.train(epochs=100)
 
     # save model
-    # model.save_model()
+    model.save_model()
 
     # load model results and create predicitons
     head = "https://sk.acdh.oeaw.ac.at/types/role/ANK"
