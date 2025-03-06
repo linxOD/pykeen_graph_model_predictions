@@ -4,8 +4,6 @@ import torch
 from graph_model.graph_model import GraphModel
 
 if __name__ == "__main__":
-    # define saved model path
-    # model_input_path = os.path.join("doctests", "test_pre_stratified_transe")
 
     # Add PosixPath to safe globals before loading the model
     torch.serialization.add_safe_globals([pathlib.PosixPath])

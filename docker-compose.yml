@@ -1,0 +1,19 @@
+x-docu:
+  title: Docker Compose file for PyKEEN training
+  description: Start container with access to GPU and volume with data and code
+  version: '1.0.0'
+
+services:
+  training:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pyekeen_training
+    container_name: pyekeen_training
+    volumes:
+     - .:/app
+    environment:
+      - security-opt=no-new-privileges
+      - cap-drop=ALL
+      - security-opt=label=type:nvidia_container_t
+      - device=nvidia.com/gpu=0

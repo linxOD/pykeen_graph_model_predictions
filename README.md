@@ -10,15 +10,14 @@ Update the GraphModel arguments and run the python script in the console. E.g. `
 Class:
 * GraphModel(**kwargs)
     * model_name (str of pykeen model classes)
-    * model_output_path (str with posix path to save model)
-    * training_path (str with posix path to training data)
-    * testing_path (str with posix path to testing data)
-    * evaluation_path (str with posix path to evaluation data)
+    * output_path (str with posix path to save model)
+    * training_path (str with posix path to training data) (optional)
+    * testing_path (str with posix path to testing data) (optional)
+    * evaluation_path (str with posix path to evaluation data) (optional)
 
 Methods:
-* convert_ttl_to_tsv(**kwargs)
-    * ttl_path (str with posix path)
-    * tsv_path (str with posix path)
+* create_new_dataset(**kwargs)
+    * input_path (direcotry with ttl files)
 * train(**kwargs)
     * epochs (int e.g. 100)
 * save_model()
@@ -26,5 +25,10 @@ Methods:
     * head (str URI)
     * relation (str URI)
 * visualize_predictions(**kwargs)
-    * graph_output_path (str with posix path)
     * top_n (int with max number of predictions to visualize)
+
+## Docker/Podman
+
+podman build -t pykeen_training .
+
+podman container run --rm -v .:/app:z --security-opt=no-new-privileges --cap-drop=ALL --security-opt label=type:nvidia_container_t --device nvidia.com/gpu=0 --name pykeen_training pykeen_training
