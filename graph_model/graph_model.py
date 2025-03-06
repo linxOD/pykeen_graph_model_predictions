@@ -5,6 +5,7 @@ import networkx as nx
 import pandas as pd
 import rdflib
 
+from datetime import datetime
 from pydantic import BaseModel
 from pykeen.pipeline import pipeline
 from tqdm import tqdm
@@ -16,18 +17,16 @@ class GraphModel(BaseModel):
 
     # variables for model
     model_name: str = "TransE"
-    model_output_path: str = os.path.join(
-        "model",
-        f"semantic_kraus_experiment_{model_name}")
+    output_path: str = "data"
 
     ########################################
     # variables for training and prediction
     ########################################
 
     # set os paths to the data as tsv files
-    training_path: str = "data/lk-texts.tsv"
-    testing_path: str = "data/fa-texts.tsv"
-    evaluation_path: str = "data/dw-texts.tsv"
+    training_path: str = "dataset/training.tsv"
+    testing_path: str = "dataset/testing.tsv"
+    evaluation_path: str = "dataset/evaluation.tsv"
 
     # training, testing and validation data
     # will be loaded as TriplesFactory objects
@@ -47,7 +46,7 @@ class GraphModel(BaseModel):
         for ttl_path in tqdm(input_glob, total=len(input_glob)):
             tsv_path = ttl_path.replace('.ttl', '.tsv')
             print(f"""Loading {ttl_path} file and
-                converting to {tsv_path}...""")
+                converting to {tsv_path}...\n\n""")
             # Load the TTL file
             g = rdflib.Graph()
             g.parse(ttl_path, format="turtle")
@@ -67,7 +66,7 @@ class GraphModel(BaseModel):
                               columns=['subject', 'predicate', 'object'])
             df.to_csv(tsv_path, sep='\t', index=False)
             print(f"Conversion complete. File saved as {tsv_path}")
-        print("Conversion to tsv complete.")
+        print("Conversion to tsv complete.\n\n")
 
     # create method to compine the training and testing data and
     # evaluate in one tsv
@@ -77,7 +76,7 @@ class GraphModel(BaseModel):
 
         for tsv_path in tqdm(input_glob, total=len(input_glob)):
             print(f"""Loading {tsv_path} and
-                combining to {combined_path}...""")
+                combining to {combined_path}...\n\n""")
             # Load the training and testing and evaluation files
             doc = pd.read_csv(tsv_path, sep='\t')
 
@@ -86,7 +85,7 @@ class GraphModel(BaseModel):
 
         # Save the combined data as TSV
         combined.to_csv(combined_path, sep='\t', index=False)
-        print(f"Combining complete. File saved as {combined_path}")
+        print(f"Combining complete. File saved as {combined_path}\n\n")
 
     # create method to randomize and split tsv into training, testing and
     # evaluation data
@@ -117,18 +116,18 @@ class GraphModel(BaseModel):
         evaluation.to_csv(os.path.join("data", "dataset", "evaluation.tsv"),
                           sep='\t', index=False)
 
-        print("Complete. Files saved in data/dataset folder.")
+        print("Complete. Files saved in data/dataset folder.\n\n")
 
         # remove combined file
         os.remove(combined_path)
 
     def load_training_data(self):
-        print(f"Loading training data from {self.training_path}...")
+        print(f"Loading training data from {self.training_path}...\n\n")
         return TriplesFactory.from_path(self.training_path,
                                         create_inverse_triples=True)
 
     def load_testing_data(self):
-        print(f"Loading testing data from {self.testing_path}...")
+        print(f"Loading testing data from {self.testing_path}...\n\n")
         return TriplesFactory.from_path(
             self.testing_path,
             entity_to_id=self.training.entity_to_id,
@@ -136,7 +135,7 @@ class GraphModel(BaseModel):
             create_inverse_triples=True)
 
     def load_evaluation_data(self):
-        print(f"Loading testing data from {self.evaluation_path}...")
+        print(f"Loading testing data from {self.evaluation_path}...\n\n")
         return TriplesFactory.from_path(
             self.evaluation_path,
             entity_to_id=self.training.entity_to_id,
@@ -144,10 +143,12 @@ class GraphModel(BaseModel):
             create_inverse_triples=True)
 
     def train(self, epochs: int = 5):
-        print("Hello from pykeen-kraus-experiment!")
+        print("\n\nHello from pykeen-kraus-experiment!\n\n")
 
         self.training = self.load_training_data()
         self.testing = self.load_testing_data()
+
+        model_output_path = os.path.join(self.output_path, 'model')
 
         self.model_results = pipeline(
             training=self.training,
@@ -159,39 +160,44 @@ class GraphModel(BaseModel):
             training_kwargs=dict(
                 num_epochs=100,
                 checkpoint_name='my_checkpoint.pt',
-                checkpoint_directory=self.model_output_path,
+                checkpoint_directory=model_output_path,
                 checkpoint_frequency=5,
                 checkpoint_on_failure=True
             ),
-            random_seed=1235,
-            use_testing_data=True
+            random_seed=1235
         )
 
         return self.model_results
 
     def save_model(self):
+        model_output_path = os.path.join(self.output_path, 'model')
+        os.makedirs(model_output_path, exist_ok=True)
         print(f"Saving model to {self.model_output_path}...")
         results = self.model_results
         results.save_to_directory(self.model_output_path)
-        print("Model saved.")
+        print("Model saved.\n\n")
 
     def predict_target(self, head, relation):
-        print("Hello from pykeen-kraus-experiment!")
+        print("\n\nHello from pykeen-kraus-experiment!\n\n")
 
         self.training = self.load_training_data()
         self.testing = self.load_testing_data()
         self.validation = self.load_evaluation_data()
 
+        model_output_path = os.path.join(self.output_path, 'model')
+
         # load the model
         if self.model_results is None:
             self.model_results = torch.load(
-                os.path.join(self.model_output_path, 'trained_model.pkl'),
-                map_location=torch.device('cpu'),
+                os.path.join(model_output_path, 'trained_model.pkl'),
+                map_location=torch.device('cuda'
+                                          if torch.cuda.is_available()
+                                          else 'cpu'),
                 weights_only=False)
 
         print("model loaded...")
 
-        print("predicting targets...")
+        print("predicting targets...\n\n")
         # create predicitons
         predictions = predict_target(
             model=self.model_results,
@@ -209,7 +215,8 @@ class GraphModel(BaseModel):
             testing=self.testing)
 
         # get the dataframe
-        pred_filtered_df = pred_annotated.df
+        pred_filtered_df = pred_annotated.df.sort_values(by='score',
+                                                         ascending=False)
 
         # create new triples
         self.prediction_targets = []
@@ -221,9 +228,23 @@ class GraphModel(BaseModel):
 
         return self.prediction_targets
 
-    def visualize_predictions(self,
-                              top_n: int = None,
-                              graph_output_path: str = None):
+    def save_predictions_df(self):
+        print("Saving predictions as dataframe...")
+        # create a dataframe
+        df = pd.DataFrame(self.prediction_targets,
+                          columns=['head', 'relation', 'tail', 'score'])
+        # save the dataframe
+        new_date = datetime.now().strftime('%Y%m%d%H%M%S')
+        filename = f"prediction_targets_{new_date}.csv"
+        prediciton_output_path = os.path.join(self.output_path, "predictions")
+        os.makedirs(prediciton_output_path, exist_ok=True)
+        df.to_csv(os.path.join(prediciton_output_path, filename), index=False)
+
+        print(f"""Dataframe saved as {filename} in
+              {prediciton_output_path}.\n\n""")
+        return prediciton_output_path
+
+    def visualize_predictions(self, top_n: int = None):
         print("Visualizing predictions...")
 
         # create a directed graph
@@ -255,10 +276,13 @@ class GraphModel(BaseModel):
         plt.tight_layout()
 
         # saving the graph as png
-        print("Saving visualization as prediction_targets_graph.png...")
+        graph_output_path = os.path.join(self.output_path, "graph")
+        print("Saving visualization as prediction_targets_graph.png..\n\n")
         os.makedirs(graph_output_path, exist_ok=True)
+        new_date = datetime.now().strftime('%Y%m%d%H%M%S')
+        filename = f"""prediction_targets_graph_{new_date}.png"""
         plt.savefig(os.path.join(
-            graph_output_path, 'prediction_targets_graph.png'),
+            graph_output_path, filename),
                     dpi=300)
 
         return graph_output_path
