@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
 import rdflib
+import glob
 
 from datetime import datetime
 from pydantic import BaseModel
@@ -24,9 +25,10 @@ class GraphModel(BaseModel):
     ########################################
 
     # set os paths to the data as tsv files
-    training_path: str = "dataset/training.tsv"
-    testing_path: str = "dataset/testing.tsv"
-    evaluation_path: str = "dataset/evaluation.tsv"
+    training_path: str = os.path.join(output_path, "dataset", "training.tsv")
+    testing_path: str = os.path.join(output_path, "dataset", "testing.tsv")
+    evaluation_path: str = os.path.join(output_path, "dataset",
+                                        "evaluation.tsv")
 
     # training, testing and validation data
     # will be loaded as TriplesFactory objects
@@ -42,7 +44,8 @@ class GraphModel(BaseModel):
     # by calling the method predict_target
     prediction_targets: list = []
 
-    def convert_ttl_to_tsv(self, input_glob: list):
+    def convert_ttl_to_tsv(self, input_path: str):
+        input_glob = glob.glob(os.path.join(input_path, "*.ttl"))
         for ttl_path in tqdm(input_glob, total=len(input_glob)):
             tsv_path = ttl_path.replace('.ttl', '.tsv')
             print(f"""Loading {ttl_path} file and
@@ -70,9 +73,10 @@ class GraphModel(BaseModel):
 
     # create method to compine the training and testing data and
     # evaluate in one tsv
-    def combine_tsv(self, input_glob: list,
-                    combined_path: str = "data/combined-graph.tsv"):
+    def combine_tsv(self, input_path: str):
+        input_glob = glob.glob(os.path.join(input_path, "*.tsv"))
         combined = pd.DataFrame(columns=['subject', 'predicate', 'object'])
+        combined_path = os.path.join("data", "combined-graph.tsv")
 
         for tsv_path in tqdm(input_glob, total=len(input_glob)):
             print(f"""Loading {tsv_path} and
@@ -86,11 +90,11 @@ class GraphModel(BaseModel):
         # Save the combined data as TSV
         combined.to_csv(combined_path, sep='\t', index=False)
         print(f"Combining complete. File saved as {combined_path}\n\n")
+        return combined_path
 
     # create method to randomize and split tsv into training, testing and
     # evaluation data
-    def randomize_split_tsv(self,
-                            combined_path: str = "data/combined-graph.tsv"):
+    def randomize_split_tsv(self, combined_path: str):
 
         print(f"""Loading {combined_path} file and
               randomizing and dataset/splitting to dataset/training.tsv,
@@ -107,46 +111,65 @@ class GraphModel(BaseModel):
         evaluation = combined.iloc[int(len(combined)*0.8):]
 
         # Save the training and testing and evaluation data as TSV
-        training.to_csv(os.path.join("data", "dataset", "training.tsv"),
-                        sep='\t', index=False)
+        os.makedirs(os.path.join(self.output_path, "dataset"), exist_ok=True)
+        self.training_path = os.path.join(self.output_path,
+                                          "dataset",
+                                          "training.tsv")
 
-        testing.to_csv(os.path.join("data", "dataset", "testing.tsv"),
-                       sep='\t', index=False)
+        self.testing_path = os.path.join(self.output_path,
+                                         "dataset",
+                                         "testing.tsv")
 
-        evaluation.to_csv(os.path.join("data", "dataset", "evaluation.tsv"),
-                          sep='\t', index=False)
+        self.evaluation_path = os.path.join(self.output_path,
+                                            "dataset",
+                                            "evaluation.tsv")
 
-        print("Complete. Files saved in data/dataset folder.\n\n")
+        training.to_csv(self.training_path, sep='\t', index=False)
+        testing.to_csv(self.testing_path, sep='\t', index=False)
+        evaluation.to_csv(self.evaluation_path, sep='\t', index=False)
 
         # remove combined file
         os.remove(combined_path)
+        print("Complete. Files saved in data/dataset folder.\n\n")
 
-    def load_training_data(self):
-        print(f"Loading training data from {self.training_path}...\n\n")
-        return TriplesFactory.from_path(self.training_path,
-                                        create_inverse_triples=True)
+    def create_new_dataset(self, input_path: list):
+        os.makedirs(self.output_path, exist_ok=True)
+        # convert ttl to tsv
+        self.convert_ttl_to_tsv(input_path)
+        # combine tsv
+        combined_graph = self.combine_tsv(input_path)
+        # randomize and split tsv
+        self.randomize_split_tsv(combined_graph)
 
-    def load_testing_data(self):
-        print(f"Loading testing data from {self.testing_path}...\n\n")
-        return TriplesFactory.from_path(
-            self.testing_path,
-            entity_to_id=self.training.entity_to_id,
-            relation_to_id=self.training.relation_to_id,
-            create_inverse_triples=True)
-
-    def load_evaluation_data(self):
-        print(f"Loading testing data from {self.evaluation_path}...\n\n")
-        return TriplesFactory.from_path(
-            self.evaluation_path,
-            entity_to_id=self.training.entity_to_id,
-            relation_to_id=self.training.relation_to_id,
-            create_inverse_triples=True)
+    def load_create_triples_factory(self, type: str = "training"):
+        if type == "testing":
+            input_path = self.testing_path
+        elif type == "evaluation":
+            input_path = self.evaluation_path
+        elif type == "training":
+            input_path = self.training_path
+        else:
+            raise ValueError("""Invalid type. Choose from 'testing',
+                             'evaluation' or 'training'""")
+        print(f"Loading {type} data from {input_path}...\n\n")
+        if type == "training":
+            triples_factory = TriplesFactory.from_path(
+                input_path,
+                create_inverse_triples=True)
+        else:
+            triples_factory = TriplesFactory.from_path(
+                input_path,
+                entity_to_id=self.training.entity_to_id,
+                relation_to_id=self.training.relation_to_id,
+                create_inverse_triples=True)
+        return triples_factory
 
     def train(self, epochs: int = 5):
         print("\n\nHello from pykeen-kraus-experiment!\n\n")
+        os.makedirs(self.output_path, exist_ok=True)
 
-        self.training = self.load_training_data()
-        self.testing = self.load_testing_data()
+        self.training = self.load_create_triples_factory(type="training")
+        self.testing = self.load_create_triples_factory(type="testing")
 
         model_output_path = os.path.join(self.output_path, 'model')
 
@@ -180,9 +203,9 @@ class GraphModel(BaseModel):
     def predict_target(self, head, relation):
         print("\n\nHello from pykeen-kraus-experiment!\n\n")
 
-        self.training = self.load_training_data()
-        self.testing = self.load_testing_data()
-        self.validation = self.load_evaluation_data()
+        self.training = self.load_create_triples_factory(type="training")
+        self.testing = self.load_create_triples_factory(type="testing")
+        self.validation = self.load_create_triples_factory(type="evaluation")
 
         model_output_path = os.path.join(self.output_path, 'model')
 
@@ -230,6 +253,7 @@ class GraphModel(BaseModel):
 
     def save_predictions_df(self):
         print("Saving predictions as dataframe...")
+        os.makedirs(self.output_path, exist_ok=True)
         # create a dataframe
         df = pd.DataFrame(self.prediction_targets,
                           columns=['head', 'relation', 'tail', 'score'])
@@ -246,6 +270,7 @@ class GraphModel(BaseModel):
 
     def visualize_predictions(self, top_n: int = None):
         print("Visualizing predictions...")
+        os.makedirs(self.output_path, exist_ok=True)
 
         # create a directed graph
         G = nx.DiGraph()

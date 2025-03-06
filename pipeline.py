@@ -1,5 +1,4 @@
-# import os
-# import glob
+import os
 import pathlib
 import torch
 from graph_model.graph_model import GraphModel
@@ -14,24 +13,17 @@ if __name__ == "__main__":
     # create an instance of the GraphModel class
     model = GraphModel(
         model_name="TransE",
-        output_path="data",
-        training_path="data/dataset/training.tsv",
-        testing_path="data/dataset/testing.tsv",
-        evaluation_path="data/dataset/evaluation.tsv")
+        output_path="data")
 
-    # # # convert ttl to tsv
-    # model.convert_ttl_to_tsv(input_glob=glob.glob("data/source/*.ttl"))
+    # create new dataset from ttl files
+    source = os.path.join("data", "source")
+    model.create_new_dataset(input_path=source)
 
-    # model.combine_tsv(glob.glob("data/source/*.tsv"),
-    #                   combined_path="data/combined-graph.tsv")
-
-    # model.randomize_split_tsv(combined_path="data/combined-graph.tsv")
-
-    # # train model
-    # model.train(epochs=100)
+    # train model
+    model.train(epochs=100)
 
     # save model
-    # model.save_model()
+    model.save_model()
 
     # load model results and create predicitons
     head = "https://sk.acdh.oeaw.ac.at/types/role/ANK"
