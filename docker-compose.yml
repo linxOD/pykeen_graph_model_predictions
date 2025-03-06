@@ -8,8 +8,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: pyekeen_training
-    container_name: pyekeen_training
+    image: pykeen_training
+    container_name: pykeen_training
     volumes:
      - .:/app
     environment:
